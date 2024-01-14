@@ -1,11 +1,11 @@
 package com.example.plugins
 
 import com.example.TelemetryRequest
+import io.ktor.http.*
 import io.ktor.server.application.*
 import io.ktor.server.response.*
 import io.ktor.server.request.*
 import io.ktor.server.routing.*
-import org.slf4j.LoggerFactory
 import java.util.concurrent.atomic.AtomicBoolean
 
 
@@ -23,10 +23,17 @@ fun Application.configureRouting() {
         // In your Routing.kt
         post("/post") {
             val receivedData = call.receive<TelemetryRequest>()
-            // Process the received data as needed
-            dataIsTracker.set(receivedData.isTracker)
-            application.log.info("Received POST with data: ${receivedData.isTracker}, etc.")
-            call.respondText("Received POST with data: ${receivedData.isTracker}, etc.")
+            try {
+                // Save the received data to the database
+                DatabaseFactory.insertTelemetry(receivedData)
+
+                application.log.info("Saved telemetry data to the database: $receivedData")
+                call.respondText("Telemetry data saved to the database.")
+            } catch (e: Exception) {
+                // Log the exception and respond with an error message
+                application.log.error("Error saving telemetry data: ${e.localizedMessage}")
+                call.respondText("Failed to save telemetry data to the database.", status = HttpStatusCode.InternalServerError)
+            }
         }
 
 
