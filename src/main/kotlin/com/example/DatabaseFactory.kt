@@ -45,7 +45,8 @@ object DatabaseFactory {
                 localPort INTEGER,
                 initiatorId INTEGER,
                 initiatorPkg TEXT,
-                isTracker BOOLEAN
+                isTracker BOOLEAN,
+                deviceIdentifier TEXT
             );
         """.trimIndent()
             conn.createStatement().execute(sql)
@@ -72,7 +73,8 @@ object DatabaseFactory {
                 localPort INTEGER,
                 initiatorId INTEGER,
                 initiatorPkg TEXT,
-                isTracker BOOLEAN
+                isTracker BOOLEAN,
+               deviceIdentifier TEXT
             );
         """.trimIndent()
             conn.createStatement().execute(sql)
@@ -98,44 +100,17 @@ object DatabaseFactory {
     }
 
 
-
-    private fun createTelemetryTable() {
-        DriverManager.getConnection(JDBC_URL).use { conn ->
-            val sql = """
-                CREATE TABLE IF NOT EXISTS telemetry (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    timestamp INTEGER,
-                    reqResId INTEGER,
-                    headers TEXT,
-                    content TEXT,
-                    contentLength INTEGER,
-                    method TEXT,
-                    remoteHost TEXT,
-                    remotePath TEXT,
-                    remoteIp TEXT,
-                    remotePort INTEGER,
-                    localIp TEXT,
-                    localPort INTEGER,
-                    initiatorId INTEGER,
-                    initiatorPkg TEXT,
-                    isTracker BOOLEAN
-                );
-            """.trimIndent()
-            conn.createStatement().execute(sql)
-        }
-    }
-
     // Modify the insertTelemetry method to handle a TelemetryRequest object.
 
     fun insertRequest(request: TelemetryRequest) {
         DriverManager.getConnection(JDBC_URL).use { conn ->
             val sql = """
-            INSERT INTO request (
-                timestamp, reqResId, headers, content, contentLength, method,
-                remoteHost, remotePath, remoteIp, remotePort, localIp, localPort,
-                initiatorId, initiatorPkg, isTracker
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """.trimIndent()
+                INSERT INTO request (
+                    timestamp, reqResId, headers, content, contentLength, method,
+                    remoteHost, remotePath, remoteIp, remotePort, localIp, localPort,
+                    initiatorId, initiatorPkg, isTracker, deviceIdentifier
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """.trimIndent()
             conn.prepareStatement(sql).use { pstmt ->
                 pstmt.setLong(1, request.timestamp)
                 pstmt.setInt(2, request.reqResId)
@@ -152,21 +127,22 @@ object DatabaseFactory {
                 pstmt.setInt(13, request.initiatorId)
                 pstmt.setString(14, request.initiatorPkg)
                 pstmt.setBoolean(15, request.isTracker)
+                pstmt.setString(16, request.deviceIdentifier) // Use deviceIdentifier from header
                 pstmt.executeUpdate()
             }
         }
     }
 
-
+    // Modify the insertResponse method to handle a TelemetryResponse object and deviceIdentifier from header.
     fun insertResponse(response: TelemetryResponse) {
         DriverManager.getConnection(JDBC_URL).use { conn ->
             val sql = """
-            INSERT INTO response (
-                timestamp, reqResId, headers, content, contentLength, statusCode,
-                statusMsg, remoteHost, remoteIp, remotePort, localIp, localPort,
-                initiatorId, initiatorPkg, isTracker
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """.trimIndent()
+                INSERT INTO response (
+                    timestamp, reqResId, headers, content, contentLength, statusCode,
+                    statusMsg, remoteHost, remoteIp, remotePort, localIp, localPort,
+                    initiatorId, initiatorPkg, isTracker, deviceIdentifier
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """.trimIndent()
             conn.prepareStatement(sql).use { pstmt ->
                 pstmt.setLong(1, response.timestamp)
                 pstmt.setInt(2, response.reqResId)
@@ -183,19 +159,19 @@ object DatabaseFactory {
                 pstmt.setInt(13, response.initiatorId)
                 pstmt.setString(14, response.initiatorPkg)
                 pstmt.setBoolean(15, response.isTracker)
+                pstmt.setString(16, response.deviceIdentifier) // Use deviceIdentifier from header
                 pstmt.executeUpdate()
             }
         }
     }
 
-
     fun insertApp(app: TelemetryApp) {
         DriverManager.getConnection(JDBC_URL).use { conn ->
             val sql = """
-            INSERT INTO app (
-                packageName, label, versionName, versionCode, isInstalled, 
-                isSystem, flags
-            ) VALUES (?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO app (
+            packageName, label, versionName, versionCode, isInstalled, 
+            isSystem, flags
+        ) VALUES (?, ?, ?, ?, ?, ?, ?)
         """.trimIndent()
             conn.prepareStatement(sql).use { pstmt ->
                 pstmt.setString(1, app.packageName)
@@ -211,42 +187,41 @@ object DatabaseFactory {
     }
 
 
+    fun getEntityCount(tableName: String): Int {
+        val sql = "SELECT COUNT(*) FROM $tableName"
 
-
-
-
-
-
-
-
-    fun insertTelemetry(telemetryRequest: TelemetryRequest) {
-        DriverManager.getConnection(JDBC_URL).use { conn ->
-            val sql = """
-                INSERT INTO telemetry (
-                    timestamp, reqResId, headers, content, contentLength, method,
-                    remoteHost, remotePath, remoteIp, remotePort, localIp, localPort,
-                    initiatorId, initiatorPkg, isTracker
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """.trimIndent()
-            conn.prepareStatement(sql).use { pstmt ->
-                // Omit the 'id' since it is auto-generated by the database
-                pstmt.setLong(1, telemetryRequest.timestamp)
-                pstmt.setInt(2, telemetryRequest.reqResId)
-                pstmt.setString(3, telemetryRequest.headers)
-                pstmt.setString(4, telemetryRequest.content)
-                pstmt.setInt(5, telemetryRequest.contentLength)
-                pstmt.setString(6, telemetryRequest.method)
-                pstmt.setString(7, telemetryRequest.remoteHost)
-                pstmt.setString(8, telemetryRequest.remotePath)
-                pstmt.setString(9, telemetryRequest.remoteIp)
-                pstmt.setInt(10, telemetryRequest.remotePort)
-                pstmt.setString(11, telemetryRequest.localIp)
-                pstmt.setInt(12, telemetryRequest.localPort)
-                pstmt.setInt(13, telemetryRequest.initiatorId)
-                pstmt.setString(14, telemetryRequest.initiatorPkg)
-                pstmt.setBoolean(15, telemetryRequest.isTracker)
-                pstmt.executeUpdate()
+        return try {
+            DriverManager.getConnection(JDBC_URL).use { conn ->
+                conn.createStatement().executeQuery(sql).use { resultSet ->
+                    if (resultSet.next()) {
+                        resultSet.getInt(1)
+                    } else {
+                        0
+                    }
+                }
             }
+        } catch (e: Exception) {
+            0 // Return 0 if an error occurs
         }
     }
+
+    fun getUniqueDeviceIdentifierCount(tableName: String): Int {
+        val sql = "SELECT COUNT(DISTINCT deviceIdentifier) FROM $tableName"
+
+        return try {
+            DriverManager.getConnection(JDBC_URL).use { conn ->
+                conn.createStatement().executeQuery(sql).use { resultSet ->
+                    if (resultSet.next()) {
+                        resultSet.getInt(1)
+                    } else {
+                        0
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            0 // Return 0 if an error occurs
+        }
+    }
+
+
 }

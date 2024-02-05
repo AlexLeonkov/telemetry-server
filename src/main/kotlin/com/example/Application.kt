@@ -11,6 +11,15 @@ import io.ktor.serialization.kotlinx.json.*
 import kotlinx.serialization.Serializable
 
 
+@Serializable
+data class TableInfo(
+    val requestCount: Int,
+    val responseCount: Int,
+    val appCount: Int,
+    val uniqueRequestDeviceCount: Int,
+    val uniqueResponseDeviceCount: Int
+)
+
 
 // Your TelemetryRequest data class
 @Serializable
@@ -30,52 +39,47 @@ data class TelemetryRequest(
     val localPort: Int,
     val initiatorId: Int,
     val initiatorPkg: String,
-    val isTracker: Boolean
+    val isTracker: Boolean,
+    var deviceIdentifier: String? = null
 )
 
-data class TelemetryResponse(
-    val id: Int,
-    val timestamp: Long,
-    val reqResId: Int,
-    val headers: String,
-    val content: String,
-    val contentLength: Int,
-    val statusCode: Int,
-    val statusMsg: String,
-    val remoteHost: String,
-    val remoteIp: String,
-    val remotePort: Int,
-    val localIp: String,
-    val localPort: Int,
-    val initiatorId: Int,
-    val initiatorPkg: String,
-    val isTracker: Boolean = false
-)
+    @Serializable
+    data class TelemetryResponse(
+        val id: Int,
+        val timestamp: Long,
+        val reqResId: Int,
+        val headers: String,
+        val content: String,
+        val contentLength: Int,
+        val statusCode: Int,
+        val statusMsg: String,
+        val remoteHost: String,
+        val remoteIp: String,
+        val remotePort: Int,
+        val localIp: String,
+        val localPort: Int,
+        val initiatorId: Int,
+        val initiatorPkg: String,
+        val isTracker: Boolean = false,
+        var deviceIdentifier: String? = null
+    )
 
 
 
 
 
 
+@Serializable
 data class TelemetryApp(
-    val id: Int,
-    val timestamp: Long,
-    val PrimaryKey: String,
-    val ColumnInfo: String,
     val packageName: String,
     val label: String,
     val versionName: String,
     val versionCode: Long,
-    val isInstalled: Boolean = true,
-    val isSystem: Boolean = false,
-    val flags: Int = 0,
-    // Additional telemetry fields can be added here
-    // For example:
-    val usageDuration: Long,
-    val foregroundTime: Long,
-    val dataUsage: Long
+    val isInstalled: Boolean,
+    val isSystem: Boolean,
+    val flags: Int,
+    // Ensure all fields are serializable or annotated with @Transient if not needed for serialization
 )
-
 fun main() {
     embeddedServer(Netty, port = 8080, host = "0.0.0.0") {
         module()
