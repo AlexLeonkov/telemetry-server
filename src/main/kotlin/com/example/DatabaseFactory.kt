@@ -1,6 +1,7 @@
 // DatabaseFactory.kt
 
 import com.example.TelemetryApp
+import com.example.TelemetryConnection
 import com.example.TelemetryRequest
 import com.example.TelemetryResponse
 import java.sql.Connection
@@ -21,6 +22,7 @@ object DatabaseFactory {
         createAppTable()
         createRequestTable()
         createResponseTable()
+        createConnectionTable()
     }
 
     // Step 3: Create the telemetry table in the database if it doesn't exist.
@@ -29,52 +31,77 @@ object DatabaseFactory {
     private fun createRequestTable() {
         DriverManager.getConnection(JDBC_URL).use { conn ->
             val sql = """
-            CREATE TABLE IF NOT EXISTS request (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                timestamp INTEGER,
-                reqResId INTEGER,
-                headers TEXT,
-                content TEXT,
-                contentLength INTEGER,
-                method TEXT,
-                remoteHost TEXT,
-                remotePath TEXT,
-                remoteIp TEXT,
-                remotePort INTEGER,
-                localIp TEXT,
-                localPort INTEGER,
-                initiatorId INTEGER,
-                initiatorPkg TEXT,
-                isTracker BOOLEAN,
-                deviceIdentifier TEXT
-            );
+        CREATE TABLE IF NOT EXISTS request (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            timestamp INTEGER,
+            reqResId INTEGER,
+            headers TEXT,
+            content TEXT,
+            contentLength INTEGER,
+            method TEXT,
+            remoteHost TEXT,
+            remotePath TEXT,
+            remoteIp TEXT,
+            remotePort INTEGER,
+            localIp TEXT,
+            localPort INTEGER,
+            initiatorId INTEGER,
+            initiatorPkg TEXT,
+            isTracker BOOLEAN,
+            deviceIdentifier TEXT,
+            anonymizationType TEXT
+        );
+        """.trimIndent()
+            conn.createStatement().execute(sql)
+        }
+    }
+
+    private fun createResponseTable() {
+        DriverManager.getConnection(JDBC_URL).use { conn ->
+            val sql = """
+        CREATE TABLE IF NOT EXISTS response (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            timestamp INTEGER,
+            reqResId INTEGER,
+            headers TEXT,
+            content TEXT,
+            contentLength INTEGER,
+            statusCode INTEGER,
+            statusMsg TEXT,
+            remoteHost TEXT,
+            remoteIp TEXT,
+            remotePort INTEGER,
+            localIp TEXT,
+            localPort INTEGER,
+            initiatorId INTEGER,
+            initiatorPkg TEXT,
+            isTracker BOOLEAN,
+            deviceIdentifier TEXT,
+            anonymizationType TEXT
+        );
         """.trimIndent()
             conn.createStatement().execute(sql)
         }
     }
 
 
-    private fun createResponseTable() {
+    private fun createConnectionTable() {
         DriverManager.getConnection(JDBC_URL).use { conn ->
             val sql = """
-            CREATE TABLE IF NOT EXISTS response (
+            CREATE TABLE IF NOT EXISTS connection (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
-                timestamp INTEGER,
-                reqResId INTEGER,
-                headers TEXT,
-                content TEXT,
-                contentLength INTEGER,
-                statusCode INTEGER,
-                statusMsg TEXT,
+                protocol TEXT,
+                initialTimestamp INTEGER,
+                initiatorId INTEGER,
+                initiatorPkg TEXT,
+                localPort INTEGER,
                 remoteHost TEXT,
                 remoteIp TEXT,
                 remotePort INTEGER,
-                localIp TEXT,
-                localPort INTEGER,
-                initiatorId INTEGER,
-                initiatorPkg TEXT,
                 isTracker BOOLEAN,
-               deviceIdentifier TEXT
+                bytesOut INTEGER,
+                bytesIn INTEGER,
+                deviceIdentifier TEXT
             );
         """.trimIndent()
             conn.createStatement().execute(sql)
@@ -108,8 +135,8 @@ object DatabaseFactory {
                 INSERT INTO request (
                     timestamp, reqResId, headers, content, contentLength, method,
                     remoteHost, remotePath, remoteIp, remotePort, localIp, localPort,
-                    initiatorId, initiatorPkg, isTracker, deviceIdentifier
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    initiatorId, initiatorPkg, isTracker, deviceIdentifier, anonymizationType
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """.trimIndent()
             conn.prepareStatement(sql).use { pstmt ->
                 pstmt.setLong(1, request.timestamp)
@@ -128,6 +155,7 @@ object DatabaseFactory {
                 pstmt.setString(14, request.initiatorPkg)
                 pstmt.setBoolean(15, request.isTracker)
                 pstmt.setString(16, request.deviceIdentifier) // Use deviceIdentifier from header
+                pstmt.setString(17, request.anonymizationType)
                 pstmt.executeUpdate()
             }
         }
@@ -140,8 +168,8 @@ object DatabaseFactory {
                 INSERT INTO response (
                     timestamp, reqResId, headers, content, contentLength, statusCode,
                     statusMsg, remoteHost, remoteIp, remotePort, localIp, localPort,
-                    initiatorId, initiatorPkg, isTracker, deviceIdentifier
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    initiatorId, initiatorPkg, isTracker, deviceIdentifier, anonymizationType
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """.trimIndent()
             conn.prepareStatement(sql).use { pstmt ->
                 pstmt.setLong(1, response.timestamp)
@@ -160,6 +188,7 @@ object DatabaseFactory {
                 pstmt.setString(14, response.initiatorPkg)
                 pstmt.setBoolean(15, response.isTracker)
                 pstmt.setString(16, response.deviceIdentifier) // Use deviceIdentifier from header
+                pstmt.setString(17, response.anonymizationType)
                 pstmt.executeUpdate()
             }
         }
@@ -181,6 +210,33 @@ object DatabaseFactory {
                 pstmt.setBoolean(5, app.isInstalled)
                 pstmt.setBoolean(6, app.isSystem)
                 pstmt.setInt(7, app.flags)
+                pstmt.executeUpdate()
+            }
+        }
+    }
+
+
+    fun insertConnection(connection: TelemetryConnection) {
+        DriverManager.getConnection(JDBC_URL).use { conn ->
+            val sql = """
+            INSERT INTO connection (
+                protocol, initialTimestamp, initiatorId, initiatorPkg, localPort,
+                remoteHost, remoteIp, remotePort, isTracker, bytesOut, bytesIn, deviceIdentifier
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """.trimIndent()
+            conn.prepareStatement(sql).use { pstmt ->
+                pstmt.setString(1, connection.protocol)
+                pstmt.setLong(2, connection.initialTimestamp)
+                pstmt.setInt(3, connection.initiatorId)
+                pstmt.setString(4, connection.initiatorPkg)
+                pstmt.setInt(5, connection.localPort)
+                pstmt.setString(6, connection.remoteHost)
+                pstmt.setString(7, connection.remoteIp)
+                pstmt.setInt(8, connection.remotePort)
+                pstmt.setBoolean(9, connection.isTracker)
+                pstmt.setLong(10, connection.bytesOut)
+                pstmt.setLong(11, connection.bytesIn)
+                pstmt.setString(12, connection.deviceIdentifier)
                 pstmt.executeUpdate()
             }
         }
