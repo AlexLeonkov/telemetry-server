@@ -8,7 +8,7 @@ The Telemetry Server is designed to capture, store, and manage telemetry data. I
 
 ## Database Setup
 
-telemetry.db is being created in root directory, not in kotlin folder.
+telemetry.db is being created in root directory, not in kotlin folder
 
 To initialize the database, the `DatabaseFactory` object is used. It automatically sets up tables for storing requests, responses, app data, and connection information. The SQLite database `telemetry.db` is used for storage.
 
