@@ -15,13 +15,13 @@ import kotlinx.serialization.Serializable
 data class TableInfo(
     val requestCount: Int,
     val responseCount: Int,
+    val connectionCount: Int,
     val appCount: Int,
     val uniqueRequestDeviceCount: Int,
-    val uniqueResponseDeviceCount: Int
+    val uniqueResponseDeviceCount: Int,
+    val uniqueConnectionDeviceCount: Int
 )
 
-
-// Your TelemetryRequest data class
 @Serializable
 data class TelemetryRequest(
     val id: Int,
@@ -40,7 +40,8 @@ data class TelemetryRequest(
     val initiatorId: Int,
     val initiatorPkg: String,
     val isTracker: Boolean,
-    var deviceIdentifier: String? = null
+    var deviceIdentifier: String? = null,
+    var anonymizationType: String? = null
 )
 
     @Serializable
@@ -61,16 +62,12 @@ data class TelemetryRequest(
         val initiatorId: Int,
         val initiatorPkg: String,
         val isTracker: Boolean = false,
-        var deviceIdentifier: String? = null
+        var deviceIdentifier: String? = null,
+        var anonymizationType: String? = null
     )
 
-
-
-
-
-
-@Serializable
-data class TelemetryApp(
+    @Serializable
+    data class TelemetryApp(
     val packageName: String,
     val label: String,
     val versionName: String,
@@ -80,6 +77,26 @@ data class TelemetryApp(
     val flags: Int,
     // Ensure all fields are serializable or annotated with @Transient if not needed for serialization
 )
+
+@Serializable
+data class TelemetryConnection(
+    val id: Long,
+    val protocol: String,
+    val initialTimestamp: Long,
+    val initiatorId: Int,
+    val initiatorPkg: String,
+    val localPort: Int,
+    val remoteHost: String,
+    val remoteIp: String,
+    val remotePort: Int,
+    val isTracker: Boolean = false,
+    val bytesOut: Long,
+    val bytesIn: Long,
+    var deviceIdentifier: String? = null
+)
+
+
+
 fun main() {
     embeddedServer(Netty, port = 8080, host = "0.0.0.0") {
         module()

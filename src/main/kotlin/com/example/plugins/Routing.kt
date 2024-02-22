@@ -1,9 +1,6 @@
 package com.example.plugins
 
-import com.example.TableInfo
-import com.example.TelemetryApp
-import com.example.TelemetryRequest
-import com.example.TelemetryResponse
+import com.example.*
 import io.ktor.http.*
 import io.ktor.server.application.*
 import io.ktor.server.response.*
@@ -15,9 +12,6 @@ import java.util.concurrent.atomic.AtomicBoolean
 
 fun Application.configureRouting() {
 
-    val dataIsTracker = AtomicBoolean(false)
-
-
     routing {
 
 
@@ -26,11 +20,18 @@ fun Application.configureRouting() {
         post("/request") {
             val telemetryRequest = call.receive<TelemetryRequest>()
             val deviceIdentifier = call.request.header("Device-Identifier")
+            val anonymizationType = call.request.header("Anonymization-Type")
 
+            application.log.info("Received headers: ${telemetryRequest.headers.toString()}")
+
+
+            application.log.info(anonymizationType)
             if (deviceIdentifier != null) {
                 try {
                     // Associate the 'deviceIdentifier' with the 'TelemetryRequest'
                     telemetryRequest.deviceIdentifier = deviceIdentifier
+                    telemetryRequest.anonymizationType = anonymizationType
+
 
                     // Insert the 'TelemetryRequest' into the database
                     DatabaseFactory.insertRequest(telemetryRequest)
@@ -46,15 +47,41 @@ fun Application.configureRouting() {
             }
         }
 
+        post("/connection") {
+            val telemetryConnection = call.receive<TelemetryConnection>()
+            val deviceIdentifier = call.request.header("Device-Identifier")
+
+            if (deviceIdentifier != null) {
+                try {
+                    // Associate the 'deviceIdentifier' with the 'TelemetryConnection'
+                    telemetryConnection.deviceIdentifier = deviceIdentifier
+
+                    // Insert the 'TelemetryConnection' into the database
+                    DatabaseFactory.insertConnection(telemetryConnection)
+
+                    application.log.info("Connection data saved to the database.")
+                    call.respond(HttpStatusCode.OK, "Connection data saved to the database.")
+                } catch (e: Exception) {
+                    application.log.error("Error saving connection data: ${e.localizedMessage}")
+                    call.respond(HttpStatusCode.InternalServerError, "Failed to save connection data to the database.")
+                }
+            } else {
+                call.respond(HttpStatusCode.BadRequest, "Device-Identifier header is missing.")
+            }
+        }
+
+
 
         post("/response") {
             val telemetryResponse = call.receive<TelemetryResponse>()
             val deviceIdentifier = call.request.header("Device-Identifier")
+            val anonymizationType = call.request.header("Anonymization-Type")
 
             if (deviceIdentifier != null) {
                 try {
                     // Associate the 'deviceIdentifier' with the 'TelemetryResponse'
                     telemetryResponse.deviceIdentifier = deviceIdentifier
+                    telemetryResponse.anonymizationType = anonymizationType // Assuming you have a field for this in your data class
 
                     // Insert the 'TelemetryResponse' into the database
                     DatabaseFactory.insertResponse(telemetryResponse)
@@ -84,31 +111,25 @@ fun Application.configureRouting() {
             }
         }
 
-//        get("/entity-count") {
-//            try {
-//                val entityCount = DatabaseFactory.getEntityCount() // Implement this function
-//                call.respondText("Total saved entities: $entityCount", ContentType.Text.Plain)
-//            } catch (e: Exception) {
-//                application.log.error("Error retrieving entity count: ${e.localizedMessage}")
-//                call.respond(HttpStatusCode.InternalServerError, "Failed to retrieve entity count.")
-//            }
-//        }
-
 
         get("/table-info") {
             try {
                 val requestCount = DatabaseFactory.getEntityCount("request")
                 val responseCount = DatabaseFactory.getEntityCount("response")
                 val appCount = DatabaseFactory.getEntityCount("app")
+                val connectionCount = DatabaseFactory.getEntityCount("connection")
                 val uniqueRequestDeviceCount = DatabaseFactory.getUniqueDeviceIdentifierCount("request")
                 val uniqueResponseDeviceCount = DatabaseFactory.getUniqueDeviceIdentifierCount("response")
+                val uniqueConnectionDeviceCount = DatabaseFactory.getUniqueDeviceIdentifierCount("connection")
 
                 val info = TableInfo(
                     requestCount = requestCount,
                     responseCount = responseCount,
                     appCount = appCount,
+                    connectionCount = connectionCount,
                     uniqueRequestDeviceCount = uniqueRequestDeviceCount,
-                    uniqueResponseDeviceCount = uniqueResponseDeviceCount
+                    uniqueResponseDeviceCount = uniqueResponseDeviceCount,
+                    uniqueConnectionDeviceCount = uniqueConnectionDeviceCount
                 )
 
                 call.respond(info)
@@ -139,33 +160,6 @@ fun Application.configureRouting() {
                 call.respond(HttpStatusCode.NotFound, "Database file not found")
             }
         }
-//        get("/") {
-//            call.respondText("The value of dataIsTracker is: ${dataIsTracker.get()}")
-//        }
-//
-//
-//        // In your Routing.kt
-//        post("/post") {
-//            val receivedData = call.receive<TelemetryRequest>()
-//            try {
-//                // Save the received data to the database
-//                DatabaseFactory.insertTelemetry(receivedData)
-//
-//                application.log.info("Saved telemetry data to the database: $receivedData")
-//                call.respondText("Telemetry data saved to the database.")
-//            } catch (e: Exception) {
-//                // Log the exception and respond with an error message
-//                application.log.error("Error saving telemetry data: ${e.localizedMessage}")
-//                call.respondText("Failed to save telemetry data to the database.", status = HttpStatusCode.InternalServerError)
-//            }
-//        }
-
-
-
-
-
-
-
         }
 
 }
